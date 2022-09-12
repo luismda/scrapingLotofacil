@@ -1,0 +1,17 @@
+{
+  "name": "scraping_lotofacil",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "type": "module",
+  "keywords": [],
+  "author": "Luís <luisdutra2004@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "excel4node": "^1.8.0",
+    "puppeteer": "^17.1.3"
+  }
+}
