@@ -18,10 +18,14 @@ const pegarConcursos = async page => {
     console.log('--> Pegando os concursos \n')
 
     let concursos = []
+    let concursosJaPegou = []
 
     let dataParada
 
     while(true){
+        const numeroConcurso = await page.$eval('#resultados h2 .ng-binding', concurso => 
+            parseInt(concurso.textContent.split(' ')[1]))
+        
         const dataConcurso = await page.$eval('#resultados h2 .ng-binding', dataConcurso => 
             dataConcurso.textContent.split(' ')[2].replace(/\(|\)/g, '').split('/').reverse().join('-'))
 
@@ -34,42 +38,43 @@ const pegarConcursos = async page => {
         }
 
         if (dataConcurso >= dataParada) {
-            const numeroConcurso = await page.$eval('#resultados h2 .ng-binding', concurso => 
-                parseInt(concurso.textContent.split(' ')[1]))
+            if (!concursosJaPegou.includes(numeroConcurso)) {
+                concursosJaPegou.push(numeroConcurso)
+                
+                console.log(`--> Concurso ${numeroConcurso} (${dataConcurso.split('-').reverse().join('/')}) \n`)
 
-            console.log(`--> Concurso ${numeroConcurso} (${dataConcurso.split('-').reverse().join('/')}) \n`)
+                const apostasGanhadoras = await page.$eval('[ng-repeat="premio in resultado.listaRateioPremio"] span', ganhadores => {
+                    const numeroGanhadores = parseInt(ganhadores.textContent.split(' ')[0])
+                    return numeroGanhadores ? numeroGanhadores : 0
+                })
 
-            const apostasGanhadoras = await page.$eval('[ng-repeat="premio in resultado.listaRateioPremio"] span', ganhadores => {
-                const numeroGanhadores = parseInt(ganhadores.textContent.split(' ')[0])
-                return numeroGanhadores ? numeroGanhadores : 0
-            })
+                const premiacao = await page.$eval('[ng-repeat="premio in resultado.listaRateioPremio"] span', premiacao => {
+                    const premiacaoGanhadores = premiacao.textContent.split(' ')
+                    const valorPremiacao = parseFloat(premiacaoGanhadores[premiacaoGanhadores.length-1].replace(/\./g, '').replace(',', '.'))
+                    return valorPremiacao ? valorPremiacao : 0.00
+                })
 
-            const premiacao = await page.$eval('[ng-repeat="premio in resultado.listaRateioPremio"] span', premiacao => {
-                const premiacaoGanhadores = premiacao.textContent.split(' ')
-                const valorPremiacao = parseFloat(premiacaoGanhadores[premiacaoGanhadores.length-1].replace(/\./g, '').replace(',', '.'))
-                return valorPremiacao ? valorPremiacao : 0.00
-            })
+                const premiacaoTotal = apostasGanhadoras ? apostasGanhadoras * premiacao : 0.00
 
-            const premiacaoTotal = apostasGanhadoras ? apostasGanhadoras * premiacao : 0.00
+                const estimativa = await page.$eval('.resultado-loteria .next-prize [ng-hide="resultado.rateioProcessamento"]', estimativa =>
+                    parseFloat(estimativa.textContent.trim().split(' ')[1].replace(/\./g, '').replace(',', '.'))) 
 
-            const estimativa = await page.$eval('.resultado-loteria .next-prize [ng-hide="resultado.rateioProcessamento"]', estimativa =>
-                parseFloat(estimativa.textContent.trim().split(' ')[1].replace(/\./g, '').replace(',', '.'))) 
+                const dataProximoConcurso = await page.$eval('.resultado-loteria .next-prize p', dataProximoConcurso =>
+                    dataProximoConcurso.textContent.trim().match(/\d{2}\/\d{2}\/\d{4}/g)[0].split('/').reverse().join('-'))
 
-            const dataProximoConcurso = await page.$eval('.resultado-loteria .next-prize p', dataProximoConcurso =>
-                dataProximoConcurso.textContent.trim().match(/\d{2}\/\d{2}\/\d{4}/g)[0].split('/').reverse().join('-'))
+                concursos.push({
+                    numeroConcurso,
+                    dataConcurso,
+                    apostasGanhadoras: apostasGanhadoras ? apostasGanhadoras.toString() : 'Não houve acertador',
+                    premiacao,
+                    premiacaoTotal,
+                    dataProximoConcurso,
+                    estimativa
+                })
 
-            concursos.push({
-                numeroConcurso,
-                dataConcurso,
-                apostasGanhadoras: apostasGanhadoras ? apostasGanhadoras.toString() : 'Não houve acertador',
-                premiacao,
-                premiacaoTotal,
-                dataProximoConcurso,
-                estimativa
-            })
-        
-            await page.click('[ng-click="carregarConcursoAnterior()"]', { delay: 60 })
-            await new Promise(r => setTimeout(r, 800))
+                await page.click('[ng-click="carregarConcursoAnterior()"]', { delay: 60 })
+                await new Promise(r => setTimeout(r, 800))   
+            }
         } else {
             break
         }
